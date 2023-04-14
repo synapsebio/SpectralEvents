@@ -1,0 +1,73 @@
+name: Python package CICD
+
+on:
+  push:
+    branches: [ "master" ]
+  
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  STD_PYTHON_VERSION: "3.10"
+  POETRY_VERSION: 1.2.2
+
+jobs:
+  python-release:
+    name: Python package publishing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'write'
+      id-token: 'write'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.STD_PYTHON_VERSION }}
+      - id: cache-dependencies
+        name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.venv
+          key: ubuntu-latest-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: ubuntu-latest-
+      - name: Install dependencies
+        if: steps.cache-dependencies.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="/root/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          poetry --version
+          poetry check --no-interaction
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction
+      - id: gcp_auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIP }}
+          service_account: ${{ secrets.GCP_SA }}
+      - name: Configure access to GCP PYPI
+        run: |
+          poetry self add keyrings.google-artifactregistry-auth
+          poetry config repositories.gcp ${{ secrets.GCP_PYPI }}
+          keyring --list-backend
+      - name: Define tag version
+        id: set-tag
+        run:  echo "::set-output name=tag_name::$(poetry version --short)"
+      - name: Create Tag
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            github.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "refs/tags/v${{ steps.set-tag.outputs.tag_name }}",
+              sha: context.sha
+            })
+      - name: Build and publish package to GCP PYPI
+        run: |
+          poetry publish -r gcp --build
