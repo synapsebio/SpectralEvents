@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "spectralevents"
+version = "0.1.0"
+description = ""
+authors = ["Hyeyoung Shin <shinehyeyoung@gmail.com>", "Ryan Thorpe <ryvthorpe@gmail.com>", "Tim Bardouille<tim.bardouille@dal.ca>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.22.4"
+scipy = ">=1.9.3"
+matplotlib = ">=3.6.2"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.16.2"
+notebook = "^6.5.1"
+flake8 = "^6.0.0"
+pytest = "^7.3.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
